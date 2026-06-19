@@ -21,7 +21,7 @@ export function StageProgress({
   const isReadyToShip =
     !!stageConfig.readyForShippingId &&
     currentListId === stageConfig.readyForShippingId;
-  const effectiveIndex = isReadyToShip ? 5 : currentIndex;
+  const effectiveIndex = isReadyToShip ? 6 : currentIndex;
   const stages = stageConfig.stages.filter((s) => !s.id.startsWith("unmapped-"));
 
   return (
@@ -31,7 +31,7 @@ export function StageProgress({
           <div className="absolute left-4 right-4 top-1/2 h-px -translate-y-1/2 bg-[var(--border)]" />
           {stages.map((stage, i) => {
             const done = effectiveIndex > i;
-            const active = effectiveIndex === i || (isReadyToShip && i === 5);
+            const active = effectiveIndex === i || (isReadyToShip && i === 6);
             return (
               <div key={stage.id} className="relative z-10 flex flex-col items-center gap-2">
                 <div
@@ -61,7 +61,7 @@ export function StageProgress({
       <div className="space-y-2.5 md:hidden">
         {stages.map((stage, i) => {
           const done = effectiveIndex > i;
-          const active = effectiveIndex === i || (isReadyToShip && i === 5);
+          const active = effectiveIndex === i || (isReadyToShip && i === 6);
           return (
             <div
               key={stage.id}

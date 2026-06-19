@@ -21,54 +21,66 @@ export type StageProgressConfig = {
 
 const STAGE_RULES = [
   {
+    name: "Order Ready",
+    shortName: "Ready",
+    order: 1,
+    match: (n: string) => n.includes("order ready"),
+  },
+  {
+    name: "PI Approved",
+    shortName: "PI OK",
+    order: 2,
+    match: (n: string) => n.includes("pi approved"),
+  },
+  {
     name: "Start Production",
     shortName: "Production",
-    order: 1,
+    order: 3,
     match: (n: string) => n.includes("start production"),
   },
   {
     name: "Copy Printing Checking",
     shortName: "Proof Check",
-    order: 2,
+    order: 4,
     match: (n: string) => n.includes("copy printing checking"),
   },
   {
     name: "Copy Printing Approved",
     shortName: "Proof OK",
-    order: 3,
+    order: 5,
     match: (n: string) => n.includes("copy printing approved"),
   },
   {
     name: "Paper Printing & Heat Transfer",
     shortName: "Printing",
-    order: 4,
+    order: 6,
     match: (n: string) =>
       n.includes("paper printing") && n.includes("heat transfer"),
   },
   {
     name: "QC & Sewing",
     shortName: "QC / Sew",
-    order: 5,
+    order: 7,
     match: (n: string) =>
       (n.includes("qc") && n.includes("sewing")) || n.includes("qc pieces"),
   },
   {
     name: "Order Shipment",
     shortName: "Shipped",
-    order: 6,
+    order: 8,
     match: (n: string) => n.includes("order ship"),
   },
   {
     name: "Received",
     shortName: "Received",
-    order: 7,
+    order: 9,
     match: (n: string) =>
       /\breceived\b/.test(n) && !n.includes("order ready"),
   },
   {
     name: "Order Feedback",
     shortName: "Feedback",
-    order: 8,
+    order: 10,
     match: (n: string) => n.includes("order feedback"),
   },
 ] as const;
@@ -141,7 +153,7 @@ export function toStageProgressConfig(
 export function getStageIndex(listId: string, config: BoardStageConfig): number {
   const idx = config.stages.findIndex((s) => s.id === listId);
   if (idx >= 0) return idx;
-  if (config.readyForShippingId && listId === config.readyForShippingId) return 5;
+  if (config.readyForShippingId && listId === config.readyForShippingId) return 6;
   if (config.finalizedListIds.has(listId)) return config.stages.length;
   return -1;
 }

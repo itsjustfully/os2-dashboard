@@ -158,15 +158,6 @@ export async function generatePinForCustomer(
   }
 
   const customerId = portalIdFromPo(poNumber);
-  const { data: existingId } = await supabase
-    .from("customers")
-    .select("customer_id")
-    .eq("customer_id", customerId)
-    .maybeSingle();
-
-  if (existingId) {
-    throw new Error(`Portal ID ${customerId} already exists`);
-  }
 
   const { error } = await supabase.from("customers").insert({
     customer_id: customerId,
