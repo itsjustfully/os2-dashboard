@@ -1,0 +1,29 @@
+# dependencies
+node_modules/
+
+# environment & secrets
+.env
+.env.*
+!.env.example
+
+# next.js
+.next/
+out/
+
+# build / logs
+*.log
+npm-debug.log*
+tsconfig.tsbuildinfo
+
+# local data
+proposed-customers.json
+*.db
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
