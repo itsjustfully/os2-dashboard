@@ -1,4 +1,5 @@
 import { createSupabaseAdmin } from "./supabase";
+import { getBoardId } from "./board";
 import { fetchBoardCards } from "./trello";
 import { parseOrderTitle, slugifyCustomer } from "./parsers";
 import bcrypt from "bcryptjs";
@@ -27,16 +28,26 @@ function generatePin(): string {
 }
 
 export async function listAdminCustomers(): Promise<AdminCustomer[]> {
+  const boardId = getBoardId();
   const [cards, supabase] = await Promise.all([
     fetchBoardCards(),
     Promise.resolve(createSupabaseAdmin()),
   ]);
 
-  const { data: dbCustomers, error } = await supabase.from("customers").select("*");
+  const { data: dbCustomers, error } = await supabase
+    .from("customers")
+    .select("*")
+    .eq("board_id", boardId);
+
   if (error) {
     if (error.message.includes("schema cache") || error.message.includes("does not exist")) {
       throw new Error(
         "Supabase table 'customers' is missing. Run: npm run db:setup"
+      );
+    }
+    if (error.message.includes("board_id")) {
+      throw new Error(
+        "customers.board_id column missing. Run: npm run db:setup"
       );
     }
     throw new Error(error.message);
@@ -126,6 +137,7 @@ export async function generatePinForCustomer(
   matchValue: string
 ): Promise<PinGenerationResult> {
   const supabase = createSupabaseAdmin();
+  const boardId = getBoardId();
   const key = matchValue.toLowerCase();
 
   const customers = await listAdminCustomers();
@@ -140,7 +152,8 @@ export async function generatePinForCustomer(
     const { error } = await supabase
       .from("customers")
       .update({ pin_hash: pinHash, updated_at: now })
-      .eq("customer_id", target.customerId);
+      .eq("customer_id", target.customerId)
+      .eq("board_id", boardId);
 
     if (error) throw new Error(error.message);
 
@@ -157,6 +170,7 @@ export async function generatePinForCustomer(
     customer_id: customerId,
     display_name: target.displayName,
     match_value: key,
+    board_id: boardId,
     pin_hash: pinHash,
     updated_at: now,
   });

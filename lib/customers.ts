@@ -1,12 +1,15 @@
 import { createSupabaseAdmin } from "./supabase";
+import { getBoardId } from "./board";
 import bcrypt from "bcryptjs";
 
 export async function authenticateCustomer(customerId: string, pin: string) {
+  const boardId = getBoardId();
   const supabase = createSupabaseAdmin();
   const { data, error } = await supabase
     .from("customers")
     .select("*")
     .eq("customer_id", customerId.toUpperCase())
+    .eq("board_id", boardId)
     .maybeSingle();
 
   if (error || !data) return null;
@@ -33,11 +36,13 @@ export async function authenticateCustomer(customerId: string, pin: string) {
 }
 
 export async function getCustomerById(customerId: string) {
+  const boardId = getBoardId();
   const supabase = createSupabaseAdmin();
   const { data } = await supabase
     .from("customers")
     .select("customer_id, display_name, match_value")
     .eq("customer_id", customerId.toUpperCase())
+    .eq("board_id", boardId)
     .maybeSingle();
 
   return data;

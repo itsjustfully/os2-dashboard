@@ -33,6 +33,8 @@ cp .env.example .env
 npm run db:setup
 ```
 
+Portal accounts are scoped to `TRELLO_BOARD_ID` in `.env` (test board vs production).
+
 4. Verify configuration:
 
 ```bash
@@ -62,7 +64,7 @@ npm run dev
 |---|---|
 | `npm run dev` | Start dev server |
 | `npm run build` | Production build |
-| `npm run db:setup` | Apply Supabase migrations |
+| `npm run db:setup` | Apply Supabase schema |
 | `npm run verify-auth` | Test Trello credentials (read-only) |
 | `npm run verify-supabase` | Test Supabase + session config |
 
@@ -73,5 +75,5 @@ app/           Pages and API routes
 components/    UI components
 lib/           Trello, auth, Supabase, parsers
 scripts/       Setup and verification utilities
-supabase/      SQL migrations
+supabase/      SQL schema
 ```

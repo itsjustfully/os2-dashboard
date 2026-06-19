@@ -4,8 +4,9 @@ export type CustomerRow = {
   id: string;
   customer_id: string;
   display_name: string;
-  pin_hash: string;
+  pin_hash: string | null;
   match_value: string;
+  board_id: string;
   created_at: string;
   updated_at: string;
 };
