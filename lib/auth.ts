@@ -5,6 +5,8 @@ export type SessionData = {
   customerId?: string;
   displayName?: string;
   matchValue?: string;
+  boardId?: string;
+  adminBoardId?: string;
   isLoggedIn: boolean;
   isAdmin?: boolean;
 };
@@ -26,7 +28,7 @@ export async function getSession() {
 
 export async function requireSession() {
   const session = await getSession();
-  if (!session.isLoggedIn || !session.matchValue) {
+  if (!session.isLoggedIn || !session.matchValue || !session.boardId) {
     return null;
   }
   return session;

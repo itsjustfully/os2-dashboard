@@ -20,7 +20,7 @@ export async function POST(
   const { id } = await params;
 
   try {
-    await postOrderAttachment(id, session.matchValue!, file);
+    await postOrderAttachment(id, session.matchValue!, session.boardId!, file);
     return NextResponse.json({ ok: true });
   } catch {
     return NextResponse.json({ error: "Failed to upload" }, { status: 500 });

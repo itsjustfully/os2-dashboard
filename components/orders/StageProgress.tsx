@@ -1,19 +1,35 @@
 "use client";
 
-import { PORTAL_STAGES, getStageIndex, READY_FOR_SHIPPING_ID } from "@/lib/stages";
+import { getStageIndex } from "@/lib/stages";
+import type { StageProgressConfig } from "@/lib/stages";
 import { cn } from "@/lib/utils";
 
-export function StageProgress({ currentListId }: { currentListId: string }) {
-  const currentIndex = getStageIndex(currentListId);
-  const isReadyToShip = currentListId === READY_FOR_SHIPPING_ID;
+export function StageProgress({
+  currentListId,
+  stageConfig,
+}: {
+  currentListId: string;
+  stageConfig: StageProgressConfig;
+}) {
+  const config = {
+    stages: stageConfig.stages,
+    readyForShippingId: stageConfig.readyForShippingId,
+    finalizedListIds: new Set(stageConfig.finalizedListIds),
+  };
+
+  const currentIndex = getStageIndex(currentListId, config);
+  const isReadyToShip =
+    !!stageConfig.readyForShippingId &&
+    currentListId === stageConfig.readyForShippingId;
   const effectiveIndex = isReadyToShip ? 5 : currentIndex;
+  const stages = stageConfig.stages.filter((s) => !s.id.startsWith("unmapped-"));
 
   return (
     <div className="space-y-5">
       <div className="hidden md:block">
         <div className="relative flex items-center justify-between px-2">
           <div className="absolute left-4 right-4 top-1/2 h-px -translate-y-1/2 bg-[var(--border)]" />
-          {PORTAL_STAGES.map((stage, i) => {
+          {stages.map((stage, i) => {
             const done = effectiveIndex > i;
             const active = effectiveIndex === i || (isReadyToShip && i === 5);
             return (
@@ -43,7 +59,7 @@ export function StageProgress({ currentListId }: { currentListId: string }) {
       </div>
 
       <div className="space-y-2.5 md:hidden">
-        {PORTAL_STAGES.map((stage, i) => {
+        {stages.map((stage, i) => {
           const done = effectiveIndex > i;
           const active = effectiveIndex === i || (isReadyToShip && i === 5);
           return (

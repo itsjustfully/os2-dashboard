@@ -21,7 +21,7 @@ cp .env.example .env
 
 | Variable | Purpose |
 |---|---|
-| `TRELLO_API_KEY` / `TRELLO_TOKEN` / `TRELLO_BOARD_ID` | Trello board access |
+| `TRELLO_API_KEY` / `TRELLO_TOKEN` | Trello API access (boards are chosen in `/admin`) |
 | `NEXT_PUBLIC_SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` | Supabase project |
 | `SUPABASE_ACCESS_TOKEN` | Personal token for `npm run db:setup` only |
 | `SESSION_SECRET` | Cookie encryption (32+ chars) |
@@ -33,7 +33,7 @@ cp .env.example .env
 npm run db:setup
 ```
 
-Portal accounts are scoped to `TRELLO_BOARD_ID` in `.env` (test board vs production).
+Portal accounts are scoped per Trello board. Staff pick the active board from a dropdown in `/admin`.
 
 4. Verify configuration:
 
@@ -55,7 +55,7 @@ npm run dev
 ## Admin workflow
 
 1. Open `/admin` and sign in with `ADMIN_PASSWORD`
-2. Generate PINs for customers (copy ID anytime; copy PIN once after generate)
+2. Select a Trello board, then generate PINs for POs on that board
 3. Staff can preview any customer account on `/login` using the customer ID + `ADMIN_PASSWORD` in the PIN field
 
 ## Scripts

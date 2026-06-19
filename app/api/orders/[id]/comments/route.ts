@@ -19,7 +19,7 @@ export async function POST(
   const { id } = await params;
 
   try {
-    await postOrderComment(id, session.matchValue!, text.trim());
+    await postOrderComment(id, session.matchValue!, session.boardId!, text.trim());
     return NextResponse.json({
       comment: {
         id: Date.now().toString(),

@@ -10,7 +10,7 @@ export default async function DashboardPage() {
   const session = await requireSession();
   if (!session) redirect("/login");
 
-  const orders = await fetchCustomerOrders(session.matchValue!);
+  const orders = await fetchCustomerOrders(session.matchValue!, session.boardId!);
 
   return (
     <div className="min-h-screen">

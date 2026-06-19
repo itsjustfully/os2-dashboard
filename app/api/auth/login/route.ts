@@ -19,6 +19,7 @@ export async function POST(request: Request) {
     session.customerId = customer.customerId;
     session.displayName = customer.displayName;
     session.matchValue = customer.matchValue;
+    session.boardId = customer.boardId;
     session.isLoggedIn = true;
     await session.save();
 

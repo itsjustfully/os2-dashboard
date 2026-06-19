@@ -2,7 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { redirect, notFound } from "next/navigation";
 import { requireSession } from "@/lib/auth";
-import { fetchOrderDetail } from "@/lib/trello";
+import { fetchOrderDetail, resolveBoardStageConfig, toStageProgressConfig } from "@/lib/trello";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { LogoutButton } from "@/components/auth/LogoutButton";
 import { AppHeader } from "@/components/layout/AppHeader";
@@ -21,8 +21,12 @@ export default async function OrderDetailPage({
   if (!session) redirect("/login");
 
   const { id } = await params;
-  const order = await fetchOrderDetail(id, session.matchValue!);
+  const order = await fetchOrderDetail(id, session.matchValue!, session.boardId!);
   if (!order) notFound();
+
+  const stageConfig = toStageProgressConfig(
+    await resolveBoardStageConfig(session.boardId!)
+  );
 
   return (
     <div className="min-h-screen">
@@ -65,7 +69,7 @@ export default async function OrderDetailPage({
               <h2 className="mb-5 text-[0.8rem] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
                 Production progress
               </h2>
-              <StageProgress currentListId={order.stageId} />
+              <StageProgress currentListId={order.stageId} stageConfig={stageConfig} />
             </GlassCard>
 
             {order.description && (

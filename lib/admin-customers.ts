@@ -1,5 +1,5 @@
 import { createSupabaseAdmin } from "./supabase";
-import { getBoardId } from "./board";
+import { getAdminBoardId } from "./board";
 import { fetchBoardCards } from "./trello";
 import { parseOrderTitle, poDisplayName, portalIdFromPo } from "./parsers";
 import bcrypt from "bcryptjs";
@@ -29,9 +29,9 @@ function generatePin(): string {
 }
 
 export async function listAdminCustomers(): Promise<AdminCustomer[]> {
-  const boardId = getBoardId();
+  const boardId = await getAdminBoardId();
   const [cards, supabase] = await Promise.all([
-    fetchBoardCards(),
+    fetchBoardCards(boardId),
     Promise.resolve(createSupabaseAdmin()),
   ]);
 
@@ -124,7 +124,7 @@ export async function generatePinForCustomer(
   matchValue: string
 ): Promise<PinGenerationResult> {
   const supabase = createSupabaseAdmin();
-  const boardId = getBoardId();
+  const boardId = await getAdminBoardId();
   const poNumber = matchValue.trim();
 
   const customers = await listAdminCustomers();

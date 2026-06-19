@@ -1,22 +1,26 @@
-import { getStageForList, getProgressPercent, READY_FOR_SHIPPING_ID } from "./stages";
+import {
+  resolveBoardStageConfig,
+  getProgressPercent,
+  stageDisplayName,
+  type BoardStageConfig,
+} from "./stages";
 import { isOrderCard, orderMatchesPo, parseOrderTitle } from "./parsers";
 
 const API_BASE = "https://api.trello.com/1";
 
-function credentials() {
+function trelloCredentials() {
   const key = process.env.TRELLO_API_KEY;
   const token = process.env.TRELLO_TOKEN;
-  const boardId = process.env.TRELLO_BOARD_ID;
 
-  if (!key || !token || !boardId) {
-    throw new Error("Missing Trello environment variables");
+  if (!key || !token) {
+    throw new Error("Missing Trello API key or token");
   }
 
-  return { key, token, boardId };
+  return { key, token };
 }
 
 async function trelloGet<T>(path: string, params: Record<string, string> = {}): Promise<T> {
-  const { key, token } = credentials();
+  const { key, token } = trelloCredentials();
   const url = new URL(`${API_BASE}${path}`);
   url.searchParams.set("key", key);
   url.searchParams.set("token", token);
@@ -61,6 +65,13 @@ type TrelloAction = {
   memberCreator?: { fullName: string; initials: string };
 };
 
+export type TrelloBoardSummary = {
+  id: string;
+  ref: string;
+  name: string;
+  url: string;
+};
+
 export type OrderSummary = {
   id: string;
   title: string;
@@ -90,6 +101,36 @@ export type OrderDetail = OrderSummary & {
   }[];
 };
 
+export function boardRef(board: { id: string; shortLink?: string | null }): string {
+  return board.shortLink?.trim() || board.id;
+}
+
+export async function fetchMemberBoards(): Promise<TrelloBoardSummary[]> {
+  const boards = await trelloGet<
+    { id: string; name: string; shortLink?: string | null; url: string }[]
+  >("/members/me/boards", {
+    fields: "id,name,shortLink,url",
+    filter: "open",
+  });
+
+  return boards
+    .map((board) => ({
+      id: board.id,
+      ref: boardRef(board),
+      name: board.name,
+      url: board.url,
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+export async function fetchBoardLists(
+  boardId: string
+): Promise<{ id: string; name: string }[]> {
+  return trelloGet<{ id: string; name: string }[]>(`/boards/${boardId}/lists`, {
+    fields: "id,name",
+  });
+}
+
 function coverUrl(card: TrelloCard): string | null {
   const coverId = card.cover?.idAttachment;
   if (!coverId || !card.attachments?.length) return null;
@@ -99,12 +140,7 @@ function coverUrl(card: TrelloCard): string | null {
   return preview?.url ?? att.url;
 }
 
-function stageName(listId: string): string {
-  if (listId === READY_FOR_SHIPPING_ID) return "Ready for Shipping";
-  return getStageForList(listId)?.name ?? "In Progress";
-}
-
-function toSummary(card: TrelloCard): OrderSummary | null {
+function toSummary(card: TrelloCard, stageConfig: BoardStageConfig): OrderSummary | null {
   const parsed = parseOrderTitle(card.name);
   if (!parsed) return null;
 
@@ -114,8 +150,8 @@ function toSummary(card: TrelloCard): OrderSummary | null {
     poNumber: parsed.poNumber,
     customerText: parsed.customerText,
     stageId: card.idList,
-    stageName: stageName(card.idList),
-    progress: getProgressPercent(card.idList),
+    stageName: stageDisplayName(card.idList, stageConfig),
+    progress: getProgressPercent(card.idList, stageConfig),
     due: card.due,
     start: card.start,
     labels: card.labels ?? [],
@@ -126,8 +162,7 @@ function toSummary(card: TrelloCard): OrderSummary | null {
   };
 }
 
-export async function fetchBoardCards(): Promise<TrelloCard[]> {
-  const { boardId } = credentials();
+export async function fetchBoardCards(boardId: string): Promise<TrelloCard[]> {
   return trelloGet<TrelloCard[]>(`/boards/${boardId}/cards`, {
     fields: "name,desc,idList,labels,due,start,dateLastActivity,badges,cover",
     attachments: "true",
@@ -135,18 +170,26 @@ export async function fetchBoardCards(): Promise<TrelloCard[]> {
   });
 }
 
-export async function fetchCustomerOrders(poNumber: string): Promise<OrderSummary[]> {
-  const cards = await fetchBoardCards();
+export async function fetchCustomerOrders(
+  poNumber: string,
+  boardId: string
+): Promise<OrderSummary[]> {
+  const [cards, stageConfig] = await Promise.all([
+    fetchBoardCards(boardId),
+    resolveBoardStageConfig(boardId),
+  ]);
+
   return cards
     .filter((c) => isOrderCard(c.name) && orderMatchesPo(poNumber, c.name))
-    .map(toSummary)
+    .map((c) => toSummary(c, stageConfig))
     .filter((o): o is OrderSummary => o !== null)
     .sort((a, b) => Number(b.poNumber) - Number(a.poNumber));
 }
 
 export async function fetchOrderDetail(
   cardId: string,
-  poNumber: string
+  poNumber: string,
+  boardId: string
 ): Promise<OrderDetail | null> {
   const card = await trelloGet<TrelloCard>(`/cards/${cardId}`, {
     fields: "name,desc,idList,labels,due,start,dateLastActivity,badges,cover",
@@ -158,7 +201,8 @@ export async function fetchOrderDetail(
     return null;
   }
 
-  const summary = toSummary(card);
+  const stageConfig = await resolveBoardStageConfig(boardId);
+  const summary = toSummary(card, stageConfig);
   if (!summary) return null;
 
   const actions = await trelloGet<TrelloAction[]>(`/cards/${cardId}/actions`, {
@@ -187,6 +231,7 @@ export async function fetchOrderDetail(
 export async function postOrderComment(
   cardId: string,
   poNumber: string,
+  boardId: string,
   text: string
 ): Promise<void> {
   const card = await trelloGet<{ name: string }>(`/cards/${cardId}`, {
@@ -197,7 +242,7 @@ export async function postOrderComment(
     throw new Error("Order not found");
   }
 
-  const { key, token } = credentials();
+  const { key, token } = trelloCredentials();
   const url = new URL(`${API_BASE}/cards/${cardId}/actions/comments`);
   url.searchParams.set("key", key);
   url.searchParams.set("token", token);
@@ -212,6 +257,7 @@ export async function postOrderComment(
 export async function postOrderAttachment(
   cardId: string,
   poNumber: string,
+  boardId: string,
   file: File
 ): Promise<void> {
   const card = await trelloGet<{ name: string }>(`/cards/${cardId}`, {
@@ -222,7 +268,7 @@ export async function postOrderAttachment(
     throw new Error("Order not found");
   }
 
-  const { key, token } = credentials();
+  const { key, token } = trelloCredentials();
   const url = new URL(`${API_BASE}/cards/${cardId}/attachments`);
   url.searchParams.set("key", key);
   url.searchParams.set("token", token);
@@ -236,3 +282,5 @@ export async function postOrderAttachment(
     throw new Error(`Failed to upload: ${await res.text()}`);
   }
 }
+
+export { resolveBoardStageConfig, toStageProgressConfig } from "./stages";

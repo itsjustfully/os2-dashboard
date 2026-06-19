@@ -12,7 +12,7 @@ export async function GET(
   }
 
   const { id } = await params;
-  const order = await fetchOrderDetail(id, session.matchValue!);
+  const order = await fetchOrderDetail(id, session.matchValue!, session.boardId!);
   if (!order) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }

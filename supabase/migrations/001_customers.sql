@@ -1,5 +1,5 @@
 -- Customers table for portal login (Customer ID + PIN)
--- board_id matches TRELLO_BOARD_ID (test vs production boards)
+-- board_id is the Trello board short link or id (set when PIN is generated)
 
 create table if not exists public.customers (
   id uuid primary key default gen_random_uuid(),

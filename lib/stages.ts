@@ -1,3 +1,5 @@
+import { fetchBoardLists } from "./trello";
+
 export type PortalStage = {
   id: string;
   name: string;
@@ -5,79 +7,162 @@ export type PortalStage = {
   order: number;
 };
 
-export const PORTAL_STAGES: PortalStage[] = [
+export type BoardStageConfig = {
+  stages: PortalStage[];
+  readyForShippingId: string | null;
+  finalizedListIds: Set<string>;
+};
+
+export type StageProgressConfig = {
+  stages: PortalStage[];
+  readyForShippingId: string | null;
+  finalizedListIds: string[];
+};
+
+const STAGE_RULES = [
   {
-    id: "6850e4483f056b0c4fa4e0b7",
     name: "Start Production",
     shortName: "Production",
     order: 1,
+    match: (n: string) => n.includes("start production"),
   },
   {
-    id: "6850e44dc70d6182848ed1d0",
     name: "Copy Printing Checking",
     shortName: "Proof Check",
     order: 2,
+    match: (n: string) => n.includes("copy printing checking"),
   },
   {
-    id: "6850e4545a1acd78b7bcf782",
     name: "Copy Printing Approved",
     shortName: "Proof OK",
     order: 3,
+    match: (n: string) => n.includes("copy printing approved"),
   },
   {
-    id: "6850e458ab79fbd30aa878a6",
     name: "Paper Printing & Heat Transfer",
     shortName: "Printing",
     order: 4,
+    match: (n: string) =>
+      n.includes("paper printing") && n.includes("heat transfer"),
   },
   {
-    id: "6850e45d792b0bab7748d793",
     name: "QC & Sewing",
     shortName: "QC / Sew",
     order: 5,
+    match: (n: string) =>
+      (n.includes("qc") && n.includes("sewing")) || n.includes("qc pieces"),
   },
   {
-    id: "6850e46643756b2f3c787801",
     name: "Order Shipment",
     shortName: "Shipped",
     order: 6,
+    match: (n: string) => n.includes("order ship"),
   },
   {
-    id: "6850e47575554a04460f3e93",
     name: "Received",
     shortName: "Received",
     order: 7,
+    match: (n: string) =>
+      /\breceived\b/.test(n) && !n.includes("order ready"),
   },
   {
-    id: "6850e47e2749ecdbd264303a",
     name: "Order Feedback",
     shortName: "Feedback",
     order: 8,
+    match: (n: string) => n.includes("order feedback"),
   },
-];
+] as const;
 
-export const FINALIZED_LIST_IDS = new Set([
-  "697dbf9d053293bee3275489",
-  "6866458c0b5aa383121cee38",
-]);
+function normalizeListName(name: string): string {
+  return name.toLowerCase().replace(/\s+/g, " ").trim();
+}
 
-export const READY_FOR_SHIPPING_ID = "687d97ba7a1dd13cfe1fba10";
+const configCache = new Map<string, { config: BoardStageConfig; expires: number }>();
+const CACHE_TTL_MS = 60_000;
 
-export function getStageIndex(listId: string): number {
-  const idx = PORTAL_STAGES.findIndex((s) => s.id === listId);
+export function buildStageConfigFromLists(
+  lists: { id: string; name: string }[]
+): BoardStageConfig {
+  const normalized = lists.map((list) => ({
+    ...list,
+    normalized: normalizeListName(list.name),
+  }));
+
+  let readyForShippingId: string | null = null;
+  const finalizedListIds = new Set<string>();
+
+  for (const list of normalized) {
+    if (list.normalized.includes("ready for shipping")) {
+      readyForShippingId = list.id;
+    }
+    if (list.normalized.includes("finalized")) {
+      finalizedListIds.add(list.id);
+    }
+  }
+
+  const stages: PortalStage[] = STAGE_RULES.map((rule) => {
+    const list = normalized.find((item) => rule.match(item.normalized));
+    return {
+      id: list?.id ?? `unmapped-${rule.order}`,
+      name: rule.name,
+      shortName: rule.shortName,
+      order: rule.order,
+    };
+  });
+
+  return { stages, readyForShippingId, finalizedListIds };
+}
+
+export async function resolveBoardStageConfig(
+  boardId: string
+): Promise<BoardStageConfig> {
+  const key = boardId.trim();
+  const cached = configCache.get(key);
+  if (cached && cached.expires > Date.now()) {
+    return cached.config;
+  }
+
+  const lists = await fetchBoardLists(key);
+  const config = buildStageConfigFromLists(lists);
+  configCache.set(key, { config, expires: Date.now() + CACHE_TTL_MS });
+  return config;
+}
+
+export function toStageProgressConfig(
+  config: BoardStageConfig
+): StageProgressConfig {
+  return {
+    stages: config.stages,
+    readyForShippingId: config.readyForShippingId,
+    finalizedListIds: [...config.finalizedListIds],
+  };
+}
+
+export function getStageIndex(listId: string, config: BoardStageConfig): number {
+  const idx = config.stages.findIndex((s) => s.id === listId);
   if (idx >= 0) return idx;
-  if (listId === READY_FOR_SHIPPING_ID) return 5;
-  if (FINALIZED_LIST_IDS.has(listId)) return PORTAL_STAGES.length;
+  if (config.readyForShippingId && listId === config.readyForShippingId) return 5;
+  if (config.finalizedListIds.has(listId)) return config.stages.length;
   return -1;
 }
 
-export function getStageForList(listId: string): PortalStage | null {
-  return PORTAL_STAGES.find((s) => s.id === listId) ?? null;
+export function getStageForList(
+  listId: string,
+  config: BoardStageConfig
+): PortalStage | null {
+  return config.stages.find((s) => s.id === listId) ?? null;
 }
 
-export function getProgressPercent(listId: string): number {
-  const idx = getStageIndex(listId);
+export function getProgressPercent(listId: string, config: BoardStageConfig): number {
+  const idx = getStageIndex(listId, config);
   if (idx < 0) return 5;
-  if (idx >= PORTAL_STAGES.length) return 100;
-  return Math.round(((idx + 0.5) / PORTAL_STAGES.length) * 100);
+  if (idx >= config.stages.length) return 100;
+  return Math.round(((idx + 0.5) / config.stages.length) * 100);
+}
+
+export function stageDisplayName(listId: string, config: BoardStageConfig): string {
+  if (config.readyForShippingId && listId === config.readyForShippingId) {
+    return "Ready for Shipping";
+  }
+  return getStageForList(listId, config)?.name ?? "In Progress";
 }
